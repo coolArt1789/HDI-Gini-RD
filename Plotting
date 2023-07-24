@@ -1,0 +1,97 @@
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import matplotlib.gridspec as gridspec
+
+#Read all data
+df_gini=pd.read_csv("assets/Gini Raw - Copy.csv",header=0)
+df_hdi=pd.read_csv("assets/HDI.csv")
+df_rd=pd.read_csv("assets/R&D Raw - Copy.csv")
+
+country_codes=df_hdi[['iso3','country']]
+country_codes.set_index('iso3',inplace=True)
+
+#Clean hdi data
+df_hdi.set_index("iso3",inplace=True)
+df_hdi=df_hdi.filter(regex='^hdi_20\d*$',axis=1)
+df_hdi.columns=[x.split('_')[1] for x in list(df_hdi.columns)]
+df_hdi=df_hdi.filter([x for x in df_hdi.columns if int(x)>2014],axis=1)
+df_hdi.rename(lambda x: int(x),axis=1,inplace=True)
+hdi=df_hdi[2021]
+hdi.rename('hdi',inplace=True)
+
+#Clean gini data
+df_gini.set_index("Country Code",inplace=True)
+df_gini=df_gini.filter(regex='^20\d*$',axis=1)
+df_gini.dropna(how="all",inplace=True)
+df_gini.fillna(axis=1,method='ffill',inplace=True)
+gini=df_gini['2022']
+gini.rename('gini',inplace=True)
+
+#Clean R&D data
+df_rd.set_index("Country Code",inplace=True)
+df_rd=df_rd.filter(regex='^20\d*$',axis=1)
+df_rd.dropna(how="all",inplace=True)
+df_rd.fillna(axis=1,method='ffill',inplace=True)
+rd=df_rd['2021']
+rd.rename('rd',inplace=True)
+
+#Merge series
+df=pd.merge(hdi,gini,how='inner',right_index=True, left_index=True)
+df=df.merge(rd,how='inner',right_index=True, left_index=True)
+
+#Set up figure layout
+gspec = gridspec.GridSpec(20, 20)
+fig=plt.figure(figsize=(10,10))
+top_ax = plt.subplot(gspec[:4,4:-1])
+left_ax = plt.subplot(gspec[4:, :4])
+scatter_ax = plt.subplot(gspec[4:, 4:-1])
+cb_ax=plt.subplot(gspec[4:,-1])
+plt.suptitle("HDI/ Gini Index/ R&D \nin 122 countries",weight='bold',size=16)
+          
+#Build the scatterplot
+scatterplot=scatter_ax.scatter(df['hdi'],df['gini'],c=df['rd'],cmap='nipy_spectral',alpha=0.8)
+scatter_ax.set_xlabel("Human Development Index",style='italic',size=12,alpha=0.7)
+scatter_ax.tick_params(labelleft=False,direction='in')
+scatter_ax.spines[['left', 'top','right','bottom']].set_visible(False)
+scatter_ax.set_xticks(np.arange(0.4,1.1,0.1))
+scatter_ax.axvline(x=0.8,color='gray',alpha=0.5)
+scatter_ax.axvline(x=0.7,color='gray',alpha=0.5)
+scatter_ax.axvline(x=0.55,color='gray',alpha=0.5)
+scatter_ax.text(0.8,0.95,"Very High",transform = scatter_ax.transAxes, color='gray',alpha=0.5)
+scatter_ax.text(0.59,0.95,"High",transform = scatter_ax.transAxes, color='gray',alpha=0.5)
+scatter_ax.text(0.36,0.95,"Medium",transform = scatter_ax.transAxes, color='gray',alpha=0.5)
+scatter_ax.text(0.14,0.95,"Low",transform = scatter_ax.transAxes, color='gray',alpha=0.5)
+
+#Add colorbar
+cb=fig.colorbar(scatterplot,cax=cb_ax)
+cb.ax.get_yaxis().labelpad = 10
+cb.set_label('R&D as % of GDP',style='italic',size=12,alpha=0.7)
+cb_ax.tick_params(labelleft=False,labelbottom=False)
+
+#Build the left histogram
+left_ax.hist(df['gini'],bins=20,orientation='horizontal',color='indigo')
+left_ax.invert_xaxis()
+left_ax.set_xticks([5,10,15])
+left_ax.set_ylabel('Gini Index',style='italic',size=12,alpha=0.7)
+left_ax.set_xlabel('Frequency',style='italic',size=12,alpha=0.7)
+left_ax.spines[['right', 'top','bottom','left']].set_visible(False)
+left_ax.tick_params(direction='in')
+
+#Build the top histogram
+top_ax.hist(df['hdi'],bins=20,color='indigo')
+top_ax.set_yticks([5,10,15])
+top_ax.set_xlabel('Human Development Index',style='italic',size=12,alpha=0.7)
+top_ax.set_ylabel('Frequency',style='italic',size=12,alpha=0.7)
+top_ax.yaxis.tick_right()
+top_ax.xaxis.set_label_position('top')
+top_ax.yaxis.set_label_position('right')
+top_ax.tick_params(labelbottom=False)
+top_ax.spines[['left','bottom','top','right']].set_visible(False)
+top_ax.set_xticks(np.arange(0.4,1.1,0.1));
+
+#Adjust all subplots
+plt.setp([left_ax.get_yticklabels(),left_ax.get_xticklabels(),
+         top_ax.get_yticklabels(),top_ax.get_xticklabels(),
+         scatter_ax.get_yticklabels(),scatter_ax.get_xticklabels(),
+         cb_ax.get_yticklabels()], alpha=0.7);
